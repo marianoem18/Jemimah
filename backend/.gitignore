@@ -1,0 +1,16 @@
+# Archivos sensibles
+.env
+
+# Dependencias de Node
+node_modules/
+
+# Logs
+logs/
+*.log
+
+# Archivos temporales
+.DS_Store
+*.tmp
+
+# Cobertura de pruebas
+coverage/
