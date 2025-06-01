@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
-// const { pathToRegexp } = require('path-to-regexp'); // Eliminar esta línea
-const logger = require('winston');
+const pathToRegexp = require('path-to-regexp'); // Cambiado aquí
+const logger = require('../config/logger');
 const permissions = require('../config/permissions');
 
 /**
@@ -61,8 +61,9 @@ const auth = async (req, res, next) => {
 
     const isAllowed = permissions.some((perm) => {
       try {
-        // Comparar directamente la ruta solicitada con la ruta del permiso
-        const isPathMatch = perm.path === requestedRoute;
+        // Crear expresión regular con path-to-regexp
+        const regexp = pathToRegexp(perm.path);
+        const isPathMatch = regexp.test(requestedRoute); // Usar regexp.test() para la comparación
         const isMethodMatch = perm.methods.includes(requestedMethod) || perm.methods.includes('*');
         const isRoleMatch = perm.role === userRole;
 
@@ -105,4 +106,12 @@ const auth = async (req, res, next) => {
   }
 };
 
+function isAdmin(req, res, next) {
+  if (req.user && req.user.role === 'admin') {
+    return next();
+  }
+  return res.status(403).json({ error: { code: 403, message: 'Acceso denegado: solo administradores' } });
+}
+
 module.exports = auth;
+module.exports.isAdmin = isAdmin;

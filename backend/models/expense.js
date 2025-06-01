@@ -1,15 +1,6 @@
 const mongoose = require('mongoose');
+const moment = require('moment-timezone');
 
-/**
- * @typedef Expense
- * @property {string} type - Tipo de egreso (Servicios, Compra de Stock, Alquiler, Otros)
- * @property {string} description - Descripción del egreso
- * @property {number} amount - Monto del egreso (mayor a 0)
- * @property {Date} date - Fecha del egreso
- * @property {mongoose.Types.ObjectId} createdBy - ID del usuario que creó el egreso
- * @property {Date} createdAt - Fecha de creación (automática)
- * @property {Date} updatedAt - Fecha de actualización (automática)
- */
 const expenseSchema = new mongoose.Schema(
   {
     type: {
@@ -36,7 +27,7 @@ const expenseSchema = new mongoose.Schema(
     date: {
       type: Date,
       required: [true, 'La fecha es obligatoria'],
-      default: Date.now,
+      default: () => moment.tz('America/Argentina/Buenos_Aires').toDate(),
     },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
@@ -47,8 +38,8 @@ const expenseSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Índice para consultas por fecha
-expenseSchema.index({ date: -1 });
+// Índice compuesto para consultas por fecha
+expenseSchema.index({ date: -1, createdAt: -1 });
 
 const Expense = mongoose.model('Expense', expenseSchema);
 

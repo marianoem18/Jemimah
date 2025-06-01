@@ -4,6 +4,7 @@ const User = require('../models/user');
 const jwt = require('jsonwebtoken');
 const logger = require('winston');
 const { ROLES, DEFAULT_ROLE } = require('../config/roles');
+const auth = require('../middleware/auth'); // Asegúrate de que esta línea exista y sea correcta
 const router = express.Router();
 
 // Validation schemas
@@ -155,6 +156,33 @@ router.post('/login', async (req, res) => {
     logger.error(`Error logging in user ${email}: ${error.message}`);
     res.status(500).json({
       error: { code: 500, message: 'Error del servidor', details: error.message },
+    });
+  }
+});
+
+/**
+ * @route GET /api/auth/me
+ * @description Get current authenticated user's data
+ * @access Private (requires token)
+ * @returns {Object} User data (id, name, email, role)
+ * @throws {401} If token is invalid or not provided
+ * @throws {500} If server error occurs
+ */
+router.get('/me', auth, async (req, res) => {
+  try {
+    // req.user is populated by the auth middleware
+    const user = await User.findById(req.user.id).select('-password'); // Exclude password
+    if (!user) {
+      logger.warn(`User not found for ID in token: ${req.user.id}`);
+      return res.status(404).json({
+        error: { code: 404, message: 'Usuario no encontrado', details: 'No se encontró un usuario con el ID proporcionado en el token' },
+      });
+    }
+    res.json(user);
+  } catch (error) {
+    logger.error(`Error fetching user data for /me route (user ID: ${req.user?.id}): ${error.message}`);
+    res.status(500).json({
+      error: { code: 500, message: 'Error del servidor', details: 'No se pudo recuperar la información del usuario' },
     });
   }
 });

@@ -2,7 +2,7 @@ const express = require('express');
 const Joi = require('joi');
 const Expense = require('../models/expense');
 const auth = require('../middleware/auth');
-const logger = require('winston');
+const logger = require('../config/logger'); // Usar logger personalizado
 const router = express.Router();
 
 // Validation schema for POST /
@@ -21,8 +21,9 @@ const expenseSchema = Joi.object({
     'number.positive': 'El monto debe ser mayor a 0',
     'any.required': 'El monto es obligatorio',
   }),
-  date: Joi.date().optional().messages({
-    'date.base': 'La fecha debe ser válida',
+  date: Joi.string().regex(/^\d{4}-\d{2}-\d{2}$/).required().messages({
+    'string.pattern.base': 'Formato de fecha inválido. Use YYYY-MM-DD',
+    'any.required': 'La fecha es obligatoria',
   }),
 });
 
@@ -38,7 +39,7 @@ router.get('/', auth, async (req, res) => {
     const expenses = await Expense.find()
       .select('type description amount date')
       .sort({ date: -1 })
-      .limit(100); // Limitar resultados para mejor rendimiento
+      .limit(100);
     logger.info(`Expenses retrieved by user: ${req.user.id}`);
     res.json({ data: expenses });
   } catch (error) {
@@ -89,7 +90,6 @@ router.get('/today', auth, async (req, res) => {
  * @throws {500} If server error occurs
  */
 router.post('/', auth, async (req, res) => {
-  // Validate input
   const { error } = expenseSchema.validate(req.body);
   if (error) {
     logger.warn(`Invalid expense creation attempt by user ${req.user.id}: ${error.details[0].message}`);
@@ -101,12 +101,20 @@ router.post('/', auth, async (req, res) => {
   const { type, description, amount, date } = req.body;
 
   try {
+    // Interpretar la fecha como local (-03:00) y convertir a UTC
+    const localDate = new Date(`${date}T00:00:00-03:00`);
+    if (isNaN(localDate)) {
+      return res.status(400).json({
+        error: { code: 400, message: 'Fecha inválida', details: 'La fecha proporcionada no es válida' },
+      });
+    }
+
     const newExpense = new Expense({
       type,
       description,
       amount,
-      date: date || new Date(),
-      createdBy: req.user.id, // Track who created the expense
+      date: localDate, // Guardar en UTC
+      createdBy: req.user.id,
     });
 
     await newExpense.save();

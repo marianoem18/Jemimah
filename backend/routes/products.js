@@ -3,7 +3,7 @@ const Joi = require('joi');
 const mongoose = require('mongoose');
 const Product = require('../models/product');
 const auth = require('../middleware/auth');
-const logger = require('winston');
+const logger = require('../config/logger');
 const router = express.Router();
 
 // Validation schema for POST and PUT
@@ -33,18 +33,17 @@ const productSchema = Joi.object({
     'string.max': 'La talla no puede exceder 20 caracteres',
     'any.required': 'La talla es obligatoria',
   }),
-  color: Joi.string().min(1).max(30).required().messages({
-    'string.min': 'El color no puede estar vacío',
-    'string.max': 'El color no puede exceder 30 caracteres',
-    'any.required': 'El color es obligatorio',
-  }),
   quantity: Joi.number().integer().min(0).required().messages({
     'number.min': 'La cantidad no puede ser negativa',
     'any.required': 'La cantidad es obligatoria',
   }),
-  price: Joi.number().min(0).required().messages({
-    'number.min': 'El precio no puede ser negativo',
-    'any.required': 'El precio es obligatorio',
+  costPrice: Joi.number().min(0).required().messages({
+    'number.min': 'El precio de costo no puede ser negativo',
+    'any.required': 'El precio de costo es obligatorio',
+  }),
+  salePrice: Joi.number().min(0).required().messages({
+    'number.min': 'El precio de venta no puede ser negativo',
+    'any.required': 'El precio de venta es obligatorio',
   }),
 });
 
@@ -58,7 +57,7 @@ const productSchema = Joi.object({
 router.get('/', auth, async (req, res) => {
   try {
     const products = await Product.find()
-      .select('name category type garment size color quantity price')
+      .select('name category type garment size quantity costPrice salePrice') // Actualizado
       .sort({ createdAt: -1 })
       .limit(100);
     logger.info(`Products retrieved by user: ${req.user.id}`);
@@ -75,7 +74,7 @@ router.get('/', auth, async (req, res) => {
  * @route POST /api/products
  * @description Create a new product (admin only)
  * @access Protected (admin)
- * @param {Object} req.body - Product data (name, category, type, garment, size, color, quantity, price)
+ * @param {Object} req.body - Product data (name, category, type, garment, size, quantity, costPrice, salePrice)
  * @returns {Object} Created product
  * @throws {400} If validation fails
  * @throws {500} If server error occurs
@@ -192,7 +191,55 @@ router.delete('/:id', auth, async (req, res) => {
     logger.info(`Product deleted by user ${req.user.id}: ${deletedProduct._id}`);
     res.json({ data: { message: 'Producto eliminado con éxito', product: deletedProduct } });
   } catch (error) {
-    logger.error(`Error deleting  product ${req.params.id} for user ${req.user.id}: ${error.message}`);
+    logger.error(`Error deleting product ${req.params.id} for user ${req.user.id}: ${error.message}`);
+    res.status(500).json({
+      error: { code: 500, message: 'Error del servidor', details: error.message },
+    });
+  }
+});
+
+// Nueva ruta para actualizar solo la cantidad
+router.put('/:id/quantity', auth, auth.isAdmin, async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.id)) {
+    logger.warn(`Invalid product ID: ${req.params.id} by user ${req.user.id}`);
+    return res.status(400).json({
+      error: { code: 400, message: 'ID inválido', details: 'El ID proporcionado no es válido' },
+    });
+  }
+
+  // Validar solo la cantidad
+  const quantitySchema = Joi.object({
+    quantity: Joi.number().integer().min(0).required().messages({
+      'number.base': 'La cantidad debe ser un número',
+      'number.integer': 'La cantidad debe ser un número entero',
+      'number.min': 'La cantidad no puede ser negativa',
+      'any.required': 'La cantidad es obligatoria',
+    }),
+  });
+  const { error } = quantitySchema.validate(req.body);
+  if (error) {
+    logger.warn(`Invalid quantity update by user ${req.user.id}: ${error.details[0].message}`);
+    return res.status(400).json({
+      error: { code: 400, message: 'Datos inválidos', details: error.details[0].message },
+    });
+  }
+
+  try {
+    const updatedProduct = await Product.findByIdAndUpdate(
+      req.params.id,
+      { $set: { quantity: req.body.quantity, updatedBy: req.user.id } },
+      { new: true, runValidators: true }
+    );
+    if (!updatedProduct) {
+      logger.warn(`Product not found: ${req.params.id} by user ${req.user.id}`);
+      return res.status(404).json({
+        error: { code: 404, message: 'Producto no encontrado', details: 'No se encontró un producto con el ID proporcionado' },
+      });
+    }
+    logger.info(`Product quantity updated by user ${req.user.id}: ${updatedProduct._id}`);
+    res.json({ data: updatedProduct });
+  } catch (error) {
+    logger.error(`Error updating quantity for product ${req.params.id} by user ${req.user.id}: ${error.message}`);
     res.status(500).json({
       error: { code: 500, message: 'Error del servidor', details: error.message },
     });

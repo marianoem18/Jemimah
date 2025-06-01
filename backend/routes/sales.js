@@ -4,37 +4,26 @@ const mongoose = require('mongoose');
 const Sale = require('../models/sale');
 const Product = require('../models/product');
 const auth = require('../middleware/auth');
-const logger = require('winston');
+const logger = require('../config/logger');
 const router = express.Router();
 
-// Validation schema for POST
-const saleSchema = Joi.object({
+// Validation schema for items
+const itemSchema = Joi.object({
   productId: Joi.string().regex(/^[0-9a-fA-F]{24}$/).required().messages({
     'string.pattern.base': 'ID de producto inválido',
     'any.required': 'ID de producto obligatorio',
-  }),
-  productName: Joi.string().min(1).max(100).required().messages({
-    'string.min': 'Nombre no puede estar vacío',
-    'string.max': 'Nombre no puede exceder 100 caracteres',
-    'any.required': 'Nombre obligatorio',
-  }),
-  size: Joi.string().min(1).max(20).required().messages({
-    'string.min': 'Talla no puede estar vacía',
-    'string.max': 'Talla no puede exceder 20 caracteres',
-    'any.required': 'Talla obligatoria',
-  }),
-  color: Joi.string().min(1).max(30).required().messages({
-    'string.min': 'Color no puede estar vacío',
-    'string.max': 'Color no puede exceder 30 caracteres',
-    'any.required': 'Color obligatorio',
   }),
   quantity: Joi.number().integer().positive().required().messages({
     'number.positive': 'Cantidad debe ser mayor a 0',
     'any.required': 'Cantidad obligatoria',
   }),
-  total: Joi.number().positive().required().messages({
-    'number.positive': 'Total debe ser mayor a 0',
-    'any.required': 'Total obligatorio',
+});
+
+// Validation schema for POST
+const saleSchema = Joi.object({
+  items: Joi.array().items(itemSchema).min(1).required().messages({
+    'array.min': 'Debe incluir al menos un producto',
+    'any.required': 'Los ítems son obligatorios',
   }),
   paymentMethod: Joi.string().valid('cash', 'card', 'transfer').required().messages({
     'any.only': 'Método de pago debe ser "cash", "card" o "transfer"',
@@ -57,7 +46,7 @@ const saleSchema = Joi.object({
 router.get('/', auth, async (req, res) => {
   try {
     const sales = await Sale.find()
-      .select('productId productName size color quantity total paymentMethod seller date')
+      .populate('items.productId', 'name size')
       .sort({ date: -1 })
       .limit(100);
     logger.info(`Sales retrieved by user: ${req.user.id}`);
@@ -87,7 +76,7 @@ router.get('/today', auth, async (req, res) => {
     const sales = await Sale.find({
       date: { $gte: today, $lt: tomorrow },
     })
-      .select('productId productName size color quantity total paymentMethod seller date')
+      .populate('items.productId', 'name size')
       .sort({ date: -1 });
 
     logger.info(`Today's sales retrieved by user: ${req.user.id}`);
@@ -104,7 +93,7 @@ router.get('/today', auth, async (req, res) => {
  * @route POST /api/sales
  * @description Create a new sale (admin or employee)
  * @access Protected (admin, employee)
- * @param {Object} req.body - Sale data (productId, productName, size, color, quantity, total, paymentMethod, seller)
+ * @param {Object} req.body - Sale data (items, paymentMethod, seller)
  * @returns {Object} Created sale
  * @throws {400} If validation fails or insufficient stock
  * @throws {404} If product not found
@@ -119,35 +108,43 @@ router.post('/', auth, async (req, res) => {
     });
   }
 
-  const { productId, productName, size, color, quantity, total, paymentMethod, seller } = req.body;
+  const { items, paymentMethod, seller } = req.body;
 
   const session = await mongoose.startSession();
   try {
     session.startTransaction();
 
-    const product = await Product.findById(productId).session(session);
-    if (!product) {
-      await session.abortTransaction();
-      logger.warn(`Product not found: ${productId} by user ${req.user.id}`);
-      return res.status(404).json({
-        error: { code: 404, message: 'Producto no encontrado', details: 'No se encontró un producto con el ID proporcionado' },
-      });
-    }
+    let total = 0;
+    const saleItems = [];
 
-    if (product.quantity < quantity) {
-      await session.abortTransaction();
-      logger.warn(`Insufficient stock for product ${productId} by user ${req.user.id}`);
-      return res.status(400).json({
-        error: { code: 400, message: 'Stock insuficiente', details: `Disponible: ${product.quantity}, solicitado: ${quantity}` },
-      });
+    for (const item of items) {
+      const product = await Product.findById(item.productId).session(session);
+      if (!product) {
+        await session.abortTransaction();
+        logger.warn(`Product not found: ${item.productId} by user ${req.user.id}`);
+        return res.status(404).json({
+          error: { code: 404, message: 'Producto no encontrado', details: `No se encontró un producto con el ID ${item.productId}` },
+        });
+      }
+
+      if (product.quantity < item.quantity) {
+        await session.abortTransaction();
+        logger.warn(`Insufficient stock for product ${item.productId} by user ${req.user.id}`);
+        return res.status(400).json({
+          error: { code: 400, message: 'Stock insuficiente', details: `Disponible: ${product.quantity}, solicitado: ${item.quantity}` },
+        });
+      }
+
+      const unitPrice = product.salePrice;
+      total += unitPrice * item.quantity;
+      saleItems.push({ productId: item.productId, quantity: item.quantity, unitPrice });
+
+      product.quantity -= item.quantity;
+      await product.save({ session });
     }
 
     const newSale = new Sale({
-      productId,
-      productName,
-      size,
-      color,
-      quantity,
+      items: saleItems,
       total,
       paymentMethod,
       seller,
@@ -155,9 +152,7 @@ router.post('/', auth, async (req, res) => {
       createdBy: req.user.id,
     });
 
-    product.quantity -= quantity;
-    await Promise.all([newSale.save({ session }), product.save({ session })]);
-
+    await newSale.save({ session });
     await session.commitTransaction();
     logger.info(`Sale created by user ${req.user.id}: ${newSale._id}`);
     res.status(201).json({ data: newSale });
@@ -208,10 +203,12 @@ router.delete('/:id', auth, async (req, res) => {
       });
     }
 
-    const product = await Product.findById(sale.productId).session(session);
-    if (product) {
-      product.quantity += sale.quantity;
-      await product.save({ session });
+    for (const item of sale.items) {
+      const product = await Product.findById(item.productId).session(session);
+      if (product) {
+        product.quantity += item.quantity;
+        await product.save({ session });
+      }
     }
 
     await sale.deleteOne({ session });
@@ -222,7 +219,7 @@ router.delete('/:id', auth, async (req, res) => {
       data: {
         message: 'Venta eliminada con éxito',
         sale,
-        stockRestored: product ? true : false,
+        stockRestored: true,
       },
     });
   } catch (error) {

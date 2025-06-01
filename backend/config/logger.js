@@ -1,25 +1,32 @@
-const { createLogger, format, transports } = require('winston');
+const winston = require('winston');
 const path = require('path');
 
-const logger = createLogger({
+// Definir formatos de log
+const logFormat = winston.format.combine(
+  winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+  winston.format.printf(({ timestamp, level, message }) => {
+    return `${timestamp} [${level.toUpperCase()}]: ${message}`;
+  })
+);
+
+// Crear el logger
+const logger = winston.createLogger({
   level: 'info',
-  format: format.combine(
-    format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-    format.errors({ stack: true }),
-    format.splat(),
-    format.json()
-  ),
-  defaultMeta: { service: 'user-service' },
+  format: logFormat,
   transports: [
-    new transports.Console({
-      format: format.combine(
-        format.colorize(),
-        format.simple()
-      )
+    // Transport para consola
+    new winston.transports.Console(),
+    // Transport para archivo de errores
+    new winston.transports.File({
+      filename: path.join(__dirname, '../logs/error.log'),
+      level: 'error',
     }),
-    new transports.File({ filename: path.join(__dirname, '../logs/error.log'), level: 'error' }),
-    new transports.File({ filename: path.join(__dirname, '../logs/combined.log') })
+    // Transport para todos los logs
+    new winston.transports.File({
+      filename: path.join(__dirname, '../logs/combined.log'),
+    }),
   ],
 });
 
+// Exportar el logger
 module.exports = logger;

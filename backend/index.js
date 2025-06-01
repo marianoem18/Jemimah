@@ -2,24 +2,13 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const logger = require('./config/logger'); // Importa el logger configurado
+const { initCronJobs } = require('./utils/cron');
 
 // Configurar dotenv
 dotenv.config();
-
-// Eliminar completamente este bloque de código, ya no es necesario:
-// const logger = winston.createLogger({
-//   level: 'info',
-//   format: winston.format.combine(
-//     winston.format.timestamp(),
-//     winston.format.json()
-//   ),
-//   transports: [
-//     new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
-//     new winston.transports.File({ filename: 'logs/combined.log' }),
-//     new winston.transports.Console(),
-//   ],
-// });
 
 // Validar variables de entorno
 const requiredEnvVars = ['MONGO_URI', 'JWT_SECRET'];
@@ -32,16 +21,55 @@ if (missingEnvVars.length) {
 // Crear aplicación Express
 const app = express();
 
+// Configurar Helmet para cabeceras de seguridad
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrc: ["'self'"],
+        connectSrc: ["'self'", process.env.CORS_ORIGIN || 'http://localhost:3000'],
+      },
+    },
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+    hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
+    noSniff: true,
+    xssFilter: true,
+    frameguard: { action: 'deny' },
+  })
+);
+
+// Configurar Rate Limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 100, // Máximo 100 solicitudes por IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    error: {
+      code: 429,
+      message: 'Demasiadas solicitudes',
+      details: 'Has excedido el límite de solicitudes. Intenta de nuevo más tarde.',
+    },
+  },
+  handler: (req, res, next, options) => {
+    logger.warn(`Límite de solicitudes excedido para IP: ${req.ip}`);
+    res.status(options.statusCode).json(options.message);
+  },
+});
+app.use(limiter);
+
 // Configurar CORS
 const corsOptions = {
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3000', // Ajustar según frontend
+  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'x-auth-token'],
 };
 app.use(cors(corsOptions));
 
 // Middleware
-app.use(express.json());
+app.use(express.json({ limit: '10kb' })); // Limitar tamaño del body
 
 // Rutas
 app.use('/api/products', require('./routes/products'));
@@ -52,9 +80,13 @@ app.use('/api/reports', require('./routes/reports'));
 
 // Middleware de errores global
 app.use((err, req, res, next) => {
-  logger.error(`Error no manejado: ${err.message}`, { stack: err.stack });
-  res.status(500).json({
-    error: { code: 500, message: 'Error del servidor', details: err.message },
+  logger.error(`Error no manejado: ${err.message}`, { stack: err.stack, ip: req.ip });
+  res.status(err.status || 500).json({
+    error: {
+      code: err.status || 500,
+      message: err.message || 'Error del servidor',
+      details: err.details || 'Ocurrió un error inesperado',
+    },
   });
 });
 
@@ -65,6 +97,8 @@ mongoose
   })
   .then(() => {
     logger.info('✅ Conectado exitosamente a MongoDB');
+    // Inicializar cron jobs después de conectar a MongoDB
+    initCronJobs();
   })
   .catch((error) => {
     logger.error(`❌ Error al conectar a MongoDB: ${error.message}`);

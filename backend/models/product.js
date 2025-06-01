@@ -56,22 +56,23 @@ const productSchema = new mongoose.Schema(
       trim: true,
       maxlength: [20, 'La talla no puede exceder 20 caracteres'],
     },
-    color: {
-      type: String,
-      required: [true, 'El color es obligatorio'],
-      trim: true,
-      maxlength: [30, 'El color no puede exceder 30 caracteres'],
-    },
     quantity: {
       type: Number,
       required: [true, 'La cantidad es obligatoria'],
       min: [0, 'La cantidad no puede ser negativa'],
       default: 0,
     },
-    price: {
+
+    costPrice: {
       type: Number,
-      required: [true, 'El precio es obligatorio'],
-      min: [0, 'El precio no puede ser negativo'],
+      required: [true, 'El precio de costo es obligatorio'],
+      min: [0, 'El precio de costo no puede ser negativo'],
+      default: 0,
+    },
+    salePrice: {
+      type: Number,
+      required: [true, 'El precio de venta es obligatorio'],
+      min: [0, 'El precio de venta no puede ser negativo'],
       default: 0,
     },
     createdBy: {
@@ -83,7 +84,7 @@ const productSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: false, // Opcional, para actualizaciones
-    },
+    }
   },
   { timestamps: true } // Añade createdAt y updatedAt automáticamente
 );
