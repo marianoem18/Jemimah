@@ -10,6 +10,9 @@ const permissions = [
   { role: 'admin', path: '/api/auth/register', methods: ['POST'] },
   { role: 'admin', path: '/api/products/:id/quantity', methods: ['PUT'] },
   {role: 'user',  path: '/api/auth/me', methods: ['GET'] },
+  { role: 'user', path: '/api/auth/me', methods: ['GET'] },
+  { role: 'employee', path: '/api/auth/me', methods: ['GET'] },
+  { role: 'admin', path: '/api/auth/me', methods: ['GET'] }, // Añade esta línea
   // Permisos para employee
   { role: 'employee', path: '/api/sales', methods: ['GET', 'POST', 'DELETE'] },
   { role: 'employee', path: '/api/expenses', methods: ['GET', 'POST', 'DELETE'] },

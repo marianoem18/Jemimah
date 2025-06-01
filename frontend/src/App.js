@@ -12,14 +12,27 @@ import Reports from './components/Reports';
 
 const PrivateRoute = ({ children, adminOnly }) => {
   const { user, loading } = useContext(AuthContext);
-  if (loading) return <div className="flex justify-center items-center min-h-screen">Cargando...</div>;
-  if (!user) return <Navigate to="/login" />;
-  if (adminOnly && user.role !== 'admin') return <Navigate to="/" />;
+  const token = localStorage.getItem('token');
+
+  if (loading) {
+    return <div className="flex justify-center items-center min-h-screen">Cargando...</div>;
+  }
+
+  // Si hay token, considerar al usuario autenticado incluso si user es null o tiene error
+  if (!token) {
+    return <Navigate to="/login" />;
+  }
+
+  if (adminOnly && user?.role !== 'admin') {
+    return <Navigate to="/" />;
+  }
+
   return children;
 };
 
 const App = () => {
   const { user, loading } = useContext(AuthContext);
+  const token = localStorage.getItem('token');
 
   if (loading) {
     return <div className="flex justify-center items-center min-h-screen">Cargando...</div>;
@@ -27,12 +40,12 @@ const App = () => {
 
   return (
     <div className="flex flex-col min-h-screen">
-      {user && <HeaderNavbar />}
+      {token && <HeaderNavbar />}
       <main className="flex-grow">
         <Routes>
           <Route
             path="/login"
-            element={user ? <Navigate to="/" /> : <Login />}
+            element={token && !user?.error ? <Navigate to="/" /> : <Login />}
           />
           <Route
             path="/"
@@ -74,10 +87,10 @@ const App = () => {
               </PrivateRoute>
             }
           />
-          <Route path="*" element={<Navigate to={user ? "/" : "/login"} />} />
+          <Route path="*" element={<Navigate to={token ? "/" : "/login"} />} />
         </Routes>
       </main>
-      {user && <Footer />}
+      {token && <Footer />}
     </div>
   );
 };

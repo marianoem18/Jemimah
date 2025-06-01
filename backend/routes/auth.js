@@ -4,10 +4,11 @@ const User = require('../models/user');
 const jwt = require('jsonwebtoken');
 const logger = require('winston');
 const { ROLES, DEFAULT_ROLE } = require('../config/roles');
-const auth = require('../middleware/auth'); // Asegúrate de que esta línea exista y sea correcta
+const auth = require('../middleware/auth');
+
 const router = express.Router();
 
-// Validation schemas
+// Esquemas de validación
 const registerSchema = Joi.object({
   email: Joi.string().email().required().messages({
     'string.email': 'Email inválido',
@@ -40,18 +41,18 @@ const loginSchema = Joi.object({
 
 /**
  * @route POST /api/auth/register
- * @description Register a new user (server-side only)
- * @access Server-only (e.g., via Thunder Client)
- * @param {Object} req.body - User data (email, password, name, role)
- * @returns {Object} Success message
- * @throws {400} If validation fails or email exists
- * @throws {500} If server error occurs
+ * @description Registrar un nuevo usuario (solo servidor)
+ * @access Solo servidor (ej. vía Thunder Client)
+ * @param {Object} req.body - Datos del usuario (email, password, name, role)
+ * @returns {Object} Mensaje de éxito
+ * @throws {400} Si la validación falla o el email ya existe
+ * @throws {500} Si ocurre un error en el servidor
  */
 router.post('/register', async (req, res) => {
-  // Validate input
+  // Validar entrada
   const { error } = registerSchema.validate(req.body);
   if (error) {
-    logger.warn(`Invalid registration attempt: ${error.details[0].message}`);
+    logger.warn(`Intento de registro inválido: ${error.details[0].message}`);
     return res.status(400).json({
       error: { code: 400, message: 'Datos inválidos', details: error.details[0].message },
     });
@@ -60,7 +61,7 @@ router.post('/register', async (req, res) => {
   const { email, password, name, role } = req.body;
 
   try {
-    // Validate JWT_SECRET
+    // Validar JWT_SECRET
     if (!process.env.JWT_SECRET) {
       logger.error('JWT_SECRET no definido');
       return res.status(500).json({
@@ -68,26 +69,26 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    // Check if user exists
+    // Verificar si el usuario ya existe
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      logger.warn(`Attempt to register existing email: ${email}`);
+      logger.warn(`Intento de registro con email existente: ${email}`);
       return res.status(400).json({
         error: { code: 400, message: 'Email ya registrado', details: 'Email en uso' },
       });
     }
 
-    // Assign role
+    // Asignar rol
     const userRole = role && ROLES.includes(role) ? role : DEFAULT_ROLE;
 
-    // Create user
+    // Crear usuario
     const newUser = new User({ email, password, name, role: userRole });
     await newUser.save();
 
-    logger.info(`User registered: ${email} (role: ${userRole})`);
+    logger.info(`Usuario registrado: ${email} (rol: ${userRole})`);
     res.status(201).json({ data: { message: 'Usuario registrado con éxito' } });
   } catch (error) {
-    logger.error(`Error registering user ${email}: ${error.message}`);
+    logger.error(`Error registrando usuario ${email}: ${error.message}`);
     res.status(500).json({
       error: { code: 500, message: 'Error del servidor', details: error.message },
     });
@@ -96,18 +97,18 @@ router.post('/register', async (req, res) => {
 
 /**
  * @route POST /api/auth/login
- * @description Authenticate user and generate JWT
- * @access Public
- * @param {Object} req.body - User credentials (email, password)
- * @returns {Object} JWT token and user data
- * @throws {400} If credentials are invalid
- * @throws {500} If server error occurs
+ * @description Autenticar usuario y generar JWT
+ * @access Público
+ * @param {Object} req.body - Credenciales del usuario (email, password)
+ * @returns {Object} Token JWT y datos del usuario
+ * @throws {400} Si las credenciales son inválidas
+ * @throws {500} Si ocurre un error en el servidor
  */
 router.post('/login', async (req, res) => {
-  // Validate input
+  // Validar entrada
   const { error } = loginSchema.validate(req.body);
   if (error) {
-    logger.warn(`Invalid login attempt: ${error.details[0].message}`);
+    logger.warn(`Intento de login inválido: ${error.details[0].message}`);
     return res.status(400).json({
       error: { code: 400, message: 'Datos inválidos', details: error.details[0].message },
     });
@@ -116,7 +117,7 @@ router.post('/login', async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    // Validate JWT_SECRET
+    // Validar JWT_SECRET
     if (!process.env.JWT_SECRET) {
       logger.error('JWT_SECRET no definido');
       return res.status(500).json({
@@ -124,36 +125,40 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // Find user
+    // Buscar usuario
     const user = await User.findOne({ email }).select('password role name _id');
     if (!user) {
-      logger.warn(`Login attempt with non-existing email: ${email}`);
+      logger.warn(`Intento de login con email no registrado: ${email}`);
       return res.status(400).json({
         error: { code: 400, message: 'Credenciales incorrectas', details: 'Email no registrado' },
       });
     }
 
-    // Check password
+    // Verificar contraseña
     const isPasswordValid = await user.comparePassword(password);
     if (!isPasswordValid) {
-      logger.warn(`Invalid password attempt for user: ${email}`);
+      logger.warn(`Intento de contraseña inválida para usuario: ${email}`);
       return res.status(400).json({
         error: { code: 400, message: 'Credenciales incorrectas', details: 'Contraseña incorrecta' },
       });
     }
 
-    // Generate JWT
-    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    // Generar JWT
+    const token = jwt.sign(
+      { id: user._id, role: user.role || DEFAULT_ROLE },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
 
-    logger.info(`Successful login for user: ${email}`);
+    logger.info(`Login exitoso para usuario: ${email} (rol: ${user.role || DEFAULT_ROLE})`);
     res.json({
       data: {
         token,
-        user: { id: user._id, name: user.name, email: user.email, role: user.role },
+        user: { id: user._id, name: user.name, email: user.email, role: user.role || DEFAULT_ROLE },
       },
     });
   } catch (error) {
-    logger.error(`Error logging in user ${email}: ${error.message}`);
+    logger.error(`Error iniciando sesión para usuario ${email}: ${error.message}`);
     res.status(500).json({
       error: { code: 500, message: 'Error del servidor', details: error.message },
     });
@@ -162,25 +167,34 @@ router.post('/login', async (req, res) => {
 
 /**
  * @route GET /api/auth/me
- * @description Get current authenticated user's data
- * @access Private (requires token)
- * @returns {Object} User data (id, name, email, role)
- * @throws {401} If token is invalid or not provided
- * @throws {500} If server error occurs
+ * @description Obtener datos del usuario autenticado
+ * @access Privado (requiere token)
+ * @returns {Object} Datos del usuario (id, name, email, role)
+ * @throws {401} Si el token es inválido o no se proporciona
+ * @throws {404} Si el usuario no se encuentra
+ * @throws {500} Si ocurre un error en el servidor
  */
 router.get('/me', auth, async (req, res) => {
   try {
-    // req.user is populated by the auth middleware
-    const user = await User.findById(req.user.id).select('-password'); // Exclude password
+    const user = await User.findById(req.user.id).select('-password');
     if (!user) {
-      logger.warn(`User not found for ID in token: ${req.user.id}`);
+      logger.warn(`Usuario no encontrado para ID en token: ${req.user.id}`);
       return res.status(404).json({
-        error: { code: 404, message: 'Usuario no encontrado', details: 'No se encontró un usuario con el ID proporcionado en el token' },
+        error: { code: 404, message: 'Usuario no encontrado', details: 'No se encontró un usuario con el ID proporcionado' },
       });
     }
-    res.json(user);
+    res.json({
+      data: {
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role || DEFAULT_ROLE,
+        },
+      },
+    });
   } catch (error) {
-    logger.error(`Error fetching user data for /me route (user ID: ${req.user?.id}): ${error.message}`);
+    logger.error(`Error obteniendo datos del usuario en /me (ID: ${req.user?.id}): ${error.message}`);
     res.status(500).json({
       error: { code: 500, message: 'Error del servidor', details: 'No se pudo recuperar la información del usuario' },
     });
