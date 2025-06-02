@@ -32,7 +32,11 @@ const expenseSchema = new mongoose.Schema(
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: false, // Opcional, pero útil para auditoría
+      required: false,
+    },
+    isProcessed: {
+      type: Boolean,
+      default: false,
     },
   },
   { timestamps: true }

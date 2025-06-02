@@ -28,8 +28,8 @@ const generateDailyReport = async () => {
 
     // Obtener ventas y gastos del día actual
     const [sales, expenses] = await Promise.all([
-      Sale.find({ date: { $gte: startDate, $lte: endDate } }).select('items total paymentMethod'),
-      Expense.find({ date: { $gte: startDate, $lte: endDate } }).select('amount'),
+      Sale.find({ date: { $gte: startDate, $lte: endDate }, isProcessed: { $ne: true } }).select('items total paymentMethod'),
+      Expense.find({ date: { $gte: startDate, $lte: endDate }, isProcessed: { $ne: true } }).select('amount'),
     ]);
 
     // Calcular métricas
@@ -57,7 +57,20 @@ const generateDailyReport = async () => {
     });
 
     await report.save();
-    logger.info(`Reporte diario para ${currentDate} guardado exitosamente`);
+
+    // Marcar ventas y gastos como procesados
+    await Promise.all([
+      Sale.updateMany(
+        { date: { $gte: startDate, $lte: endDate }, isProcessed: { $ne: true } },
+        { $set: { isProcessed: true } }
+      ),
+      Expense.updateMany(
+        { date: { $gte: startDate, $lte: endDate }, isProcessed: { $ne: true } },
+        { $set: { isProcessed: true } }
+      ),
+    ]);
+
+    logger.info(`Reporte diario para ${currentDate} guardado exitosamente y datos diarios reseteados`);
   } catch (error) {
     logger.error(`Error al generar reporte diario: ${error.message}`);
   }
@@ -73,4 +86,4 @@ const initCronJobs = () => {
   logger.info('Cron jobs inicializados correctamente');
 };
 
-module.exports = { initCronJobs };
+module.exports = { initCronJobs, generateDailyReport };

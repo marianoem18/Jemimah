@@ -25,7 +25,7 @@ const Reports = () => {
 
     // Obtener reporte diario
     axios
-      .get(`http://localhost:5000/api/reports/summary?type=daily`, { headers })
+      .get(`http://localhost:5000/api/reports/summary?type=daily&date=${today}`, { headers })
       .then((res) => {
         const data = res.data.data;
         setReport(

@@ -8,6 +8,7 @@ const logger = require('winston');
 const router = express.Router();
 const Report = require('../models/report');
 const moment = require('moment-timezone');
+const { generateDailyReport } = require('../utils/cron');
 
 // Validation schema for query params
 const reportSchema = Joi.object({
@@ -23,12 +24,20 @@ const reportSchema = Joi.object({
 // Validation schema for history query params
 const historySchema = Joi.object({
   startDate: Joi.string().regex(/^\d{4}-\d{2}-\d{2}$/).required().messages({
-    'string.pattern.base': 'Formato de fecha inválido. Use YYYY-MM-DD',
+    'string.pattern.base': 'Formato de Fecha inválido. Use YYYY-MM-DD',
     'any.required': 'La fecha de inicio es obligatoria',
   }),
   endDate: Joi.string().regex(/^\d{4}-\d{2}-\d{2}$/).required().messages({
     'string.pattern.base': 'Formato de fecha inválido. Use YYYY-MM-DD',
     'any.required': 'La fecha de fin es obligatoria',
+  }),
+});
+
+// Validation schema for manual report generation
+const generateReportSchema = Joi.object({
+  date: Joi.string().regex(/^\d{4}-\d{2}-\d{2}$/).required().messages({
+    'string.pattern.base': 'Formato de fecha inválido. Use YYYY-MM-DD',
+    'any.required': 'La fecha es obligatoria',
   }),
 });
 
@@ -155,8 +164,9 @@ router.get('/expenses', auth, async (req, res) => {
       startDate = queryDate.clone().subtract(19, 'days').startOf('day').toDate();
     }
 
-    const expenses = await Sale.find({
+    const expenses = await Expense.find({
       date: { $gte: startDate, $lte: endDate },
+      isProcessed: { $ne: true },
     }).select('amount type date');
 
     const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
@@ -238,8 +248,8 @@ router.get('/summary', auth, async (req, res) => {
     }
 
     const [sales, expenses] = await Promise.all([
-      Sale.find({ date: { $gte: startDate, $lte: endDate } }).select('items total paymentMethod'),
-      Expense.find({ date: { $gte: startDate, $lte: endDate } }).select('amount'),
+      Sale.find({ date: { $gte: startDate, $lte: endDate }, isProcessed: { $ne: true } }).select('items total paymentMethod'),
+      Expense.find({ date: { $gte: startDate, $lte: endDate }, isProcessed: { $ne: true } }).select('amount'),
     ]);
 
     const totalProductsSold = sales.reduce((sum, sale) => {
@@ -307,8 +317,8 @@ router.post('/generate', auth, auth.isAdmin, async (req, res) => {
     const endDate = queryDate.clone().endOf('day').toDate();
 
     const [sales, expenses] = await Promise.all([
-      Sale.find({ date: { $gte: startDate, $lte: endDate } }).select('items total paymentMethod'),
-      Expense.find({ date: { $gte: startDate, $lte: endDate } }).select('amount'),
+      Sale.find({ date: { $gte: startDate, $lte: endDate }, isProcessed: { $ne: true } }).select('items total paymentMethod'),
+      Expense.find({ date: { $gte: startDate, $lte: endDate }, isProcessed: { $ne: true } }).select('amount'),
     ]);
 
     const totalProductsSold = sales.reduce((sum, sale) => {
@@ -334,6 +344,19 @@ router.post('/generate', auth, auth.isAdmin, async (req, res) => {
     });
 
     await report.save();
+
+    // Marcar ventas y gastos como procesados
+    await Promise.all([
+      Sale.updateMany(
+        { date: { $gte: startDate, $lte: endDate }, isProcessed: { $ne: true } },
+        { $set: { isProcessed: true } }
+      ),
+      Expense.updateMany(
+        { date: { $gte: startDate, $lte: endDate }, isProcessed: { $ne: true } },
+        { $set: { isProcessed: true } }
+      ),
+    ]);
+
     logger.info(`Reporte generado manualmente para ${date} por usuario ${req.user.id}`);
     res.json({ data: report });
   } catch (error) {
@@ -341,6 +364,15 @@ router.post('/generate', auth, auth.isAdmin, async (req, res) => {
     res.status(500).json({
       error: { code: 500, message: 'Error del servidor', details: error.message },
     });
+  }
+});
+
+router.get('/generate-manual-report', async (req, res) => {
+  try {
+    await generateDailyReport();
+    res.status(200).json({ message: 'Reporte diario generado manualmente.' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error al generar reporte manualmente', error: error.message });
   }
 });
 

@@ -51,6 +51,10 @@ const saleSchema = new mongoose.Schema(
       ref: 'User',
       required: false,
     },
+    isProcessed: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );
