@@ -17,7 +17,14 @@ const permissions = [
   { role: 'employee', path: '/api/sales', methods: ['GET', 'POST', 'DELETE'] },
   { role: 'employee', path: '/api/expenses', methods: ['GET', 'POST', 'DELETE'] },
   { role: 'employee', path: '/api/products', methods: ['GET'] },
-  { role: 'employee', path: '/api/reports/summary', methods: ['GET'] }
+  { role: 'employee', path: '/api/reports/summary', methods: ['GET'] },
+  // ADDED: Permisos para rutas /today
+  { role: 'admin', path: '/api/sales/today', methods: ['GET'] },
+  { role: 'employee', path: '/api/sales/today', methods: ['GET'] },
+  { role: 'admin', path: '/api/expenses/today', methods: ['GET'] },
+  { role: 'employee', path: '/api/expenses/today', methods: ['GET'] },
+  { role: 'admin', path: '/api/reports/today', methods: ['GET'] },
+  { role: 'employee', path: '/api/reports/today', methods: ['GET'] }
 ];
 
 module.exports = permissions;

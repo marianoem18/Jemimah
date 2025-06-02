@@ -14,10 +14,15 @@ const Expenses = () => {
   useEffect(() => {
     const token = localStorage.getItem('token');
     axios
-      .get('http://localhost:5000/api/expenses', {
+      .get('http://localhost:5000/api/expenses/today', {
         headers: { 'x-auth-token': token },
       })
-      .then((res) => setExpenses(res.data.data))
+      .then((res) => {
+        const sortedExpenses = res.data.data.sort((a, b) => {
+          return new Date(b.createdAt) - new Date(a.createdAt);
+        });
+        setExpenses(sortedExpenses);
+      })
       .catch((err) => console.error(err));
   }, []);
 
@@ -25,18 +30,19 @@ const Expenses = () => {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
-      // Enviar fecha como YYYY-MM-DD
       const dataToSend = {
         ...form,
         amount: parseFloat(form.amount),
-        date: form.date, // Formato YYYY-MM-DD
+        date: form.date,
       };
       await axios.post('http://localhost:5000/api/expenses', dataToSend, {
         headers: { 'x-auth-token': token },
       });
       setForm({ type: '', amount: '', description: '', date: new Date().toISOString().split('T')[0] });
       setError('');
-      const res = await axios.get('http://localhost:5000/api/expenses', {
+      
+      // Actualizar solo con los gastos del día
+      const res = await axios.get('http://localhost:5000/api/expenses/today', {
         headers: { 'x-auth-token': token },
       });
       setExpenses(res.data.data);

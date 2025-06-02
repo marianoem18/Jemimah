@@ -25,17 +25,47 @@ const Sales = () => {
       .catch((err) => console.error(err));
 
     axios
-      .get('http://localhost:5000/api/sales', {
+      .get('http://localhost:5000/api/sales/today', {
         headers: { 'x-auth-token': token },
       })
       .then((res) => {
-        const todaySales = res.data.data.filter(
-          (sale) => new Date(sale.date).toISOString().split('T')[0] === today
-        );
-        setSales(todaySales);
+        setSales(res.data.data);
       })
       .catch((err) => console.error(err));
   }, []);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (form.items.length === 0) {
+      setError('Debe agregar al menos un producto');
+      return;
+    }
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post('http://localhost:5000/api/sales', form, {
+        headers: { 'x-auth-token': token },
+      });
+      setForm({ items: [], paymentMethod: '', seller: '' });
+      setError('');
+      
+      // Actualizar solo con las ventas del día
+      // REMOVED: const res = await axios.get('http://localhost:5000/api/sales/today', {
+      // REMOVED:   headers: { 'x-auth-token': token },
+      // REMOVED: });
+      // REMOVED: setSales(res.data.data);
+
+      // ADDED: Fetch all sales and filter by today's date
+      const res = await axios.get('http://localhost:5000/api/sales', {
+        headers: { 'x-auth-token': token },
+      });
+      const todaySales = res.data.data.filter(
+        (sale) => new Date(sale.date).toISOString().split('T')[0] === today
+      );
+      setSales(todaySales);
+    } catch (err) {
+      setError(err.response?.data?.error?.message || 'Error al registrar venta');
+    }
+  };
 
   const handleSearch = (e) => {
     setSearch(e.target.value);
@@ -70,30 +100,31 @@ const Sales = () => {
     });
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (form.items.length === 0) {
-      setError('Debe agregar al menos un producto');
-      return;
-    }
-    try {
-      const token = localStorage.getItem('token');
-      await axios.post('http://localhost:5000/api/sales', form, {
-        headers: { 'x-auth-token': token },
-      });
-      setForm({ items: [], paymentMethod: '', seller: '' });
-      setError('');
-      const res = await axios.get('http://localhost:5000/api/sales', {
-        headers: { 'x-auth-token': token },
-      });
-      const todaySales = res.data.data.filter(
-        (sale) => new Date(sale.date).toISOString().split('T')[0] === today
-      );
-      setSales(todaySales);
-    } catch (err) {
-      setError(err.response?.data?.error?.message || 'Error al registrar venta');
-    }
-  };
+  // REMOVED DUPLICATE handleSubmit FUNCTION
+  // const handleSubmit = async (e) => {
+  //   e.preventDefault();
+  //   if (form.items.length === 0) {
+  //     setError('Debe agregar al menos un producto');
+  //     return;
+  //   }
+  //   try {
+  //     const token = localStorage.getItem('token');
+  //     await axios.post('http://localhost:5000/api/sales', form, {
+  //       headers: { 'x-auth-token': token },
+  //     });
+  //     setForm({ items: [], paymentMethod: '', seller: '' });
+  //     setError('');
+  //     const res = await axios.get('http://localhost:5000/api/sales', {
+  //       headers: { 'x-auth-token': token },
+  //     });
+  //     const todaySales = res.data.data.filter(
+  //       (sale) => new Date(sale.date).toISOString().split('T')[0] === today
+  //     );
+  //     setSales(todaySales);
+  //   } catch (err) {
+  //     setError(err.response?.data?.error?.message || 'Error al registrar venta');
+  //   }
+  // };
 
   const filteredProducts = products.filter((p) =>
     p.name.toLowerCase().includes(search.toLowerCase())

@@ -28,8 +28,14 @@ const generateDailyReport = async () => {
 
     // Obtener ventas y gastos del día actual
     const [sales, expenses] = await Promise.all([
-      Sale.find({ date: { $gte: startDate, $lte: endDate }, isProcessed: { $ne: true } }).select('items total paymentMethod'),
-      Expense.find({ date: { $gte: startDate, $lte: endDate }, isProcessed: { $ne: true } }).select('amount'),
+      Sale.find({
+        date: { $gte: startDate, $lte: endDate },
+        isProcessed: false // Cambiado de { $ne: true } a false
+      }).select('items total paymentMethod'),
+      Expense.find({
+        date: { $gte: startDate, $lte: endDate },
+        isProcessed: false // Cambiado de { $ne: true } a false
+      }).select('amount'),
     ]);
 
     // Calcular métricas
@@ -78,7 +84,7 @@ const generateDailyReport = async () => {
 
 // Programar el cron job para ejecutarse todos los días a las 00:00 (Argentina)
 const initCronJobs = () => {
-  cron.schedule('0 0 * * *', generateDailyReport, {
+  cron.schedule('01 18 * * *', generateDailyReport, {
     scheduled: true,
     timezone: 'America/Argentina/Buenos_Aires',
   });

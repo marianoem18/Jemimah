@@ -66,9 +66,10 @@ router.get('/today', auth, async (req, res) => {
 
     const expenses = await Expense.find({
       date: { $gte: today, $lt: tomorrow },
+      // isProcessed: false // Eliminado este filtro
     })
       .select('type description amount date')
-      .sort({ date: -1 });
+      .sort({ date: 1, createdAt: 1 }); // Ordenar por fecha ascendente y luego por creación
 
     logger.info(`Today's expenses retrieved by user: ${req.user.id}`);
     res.json({ data: expenses });
