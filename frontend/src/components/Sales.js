@@ -32,6 +32,17 @@ const Sales = () => {
         setSales(res.data.data);
       })
       .catch((err) => console.error(err));
+
+    // ADDED: Fetch user info to pre-fill seller name
+    axios
+      .get('http://localhost:5000/api/auth/me', {
+        headers: { 'x-auth-token': token },
+      })
+      .then((res) => {
+        setForm((prevForm) => ({ ...prevForm, seller: res.data.name || '' }));
+      })
+      .catch((err) => console.error('Error fetching user info:', err));
+
   }, []);
 
   const handleSubmit = async (e) => {

@@ -44,38 +44,38 @@ const Dashboard = () => {
   }, [today]);
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h2 className="text-2xl font-bold mb-6">Panel de Control - {today}</h2>
+    <div className="container mx-auto px-4 py-8 bg-gray-100 min-h-screen">
+      <h2 className="text-3xl font-bold mb-8 text-gray-800">Panel de Control - {today}</h2>
       {summary ? (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-          <div className="bg-white p-4 rounded shadow">
-            <h3 className="font-semibold">Ventas del Día</h3>
-            <p className="text-xl">${summary.totalSales ? summary.totalSales.toFixed(2) : '0.00'}</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+            <h3 className="font-semibold text-lg text-gray-700 mb-2">Ventas del Día</h3>
+            <p className="text-2xl font-bold text-green-600">${summary.totalSales ? summary.totalSales.toFixed(2) : '0.00'}</p>
           </div>
-          <div className="bg-white p-4 rounded shadow">
-            <h3 className="font-semibold">Productos Vendidos</h3>
-            <p className="text-xl">{summary.totalProductsSold || 0}</p>
+          <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+            <h3 className="font-semibold text-lg text-gray-700 mb-2">Productos Vendidos</h3>
+            <p className="text-2xl font-bold text-blue-600">{summary.totalProductsSold || 0}</p>
           </div>
-          <div className="bg-white p-4 rounded shadow">
-            <h3 className="font-semibold">Stock Total</h3>
-            <p className="text-xl">{totalStockQuantity}</p>
+          <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+            <h3 className="font-semibold text-lg text-gray-700 mb-2">Stock Total</h3>
+            <p className="text-2xl font-bold text-purple-600">{totalStockQuantity}</p>
           </div>
-          <div className="bg-white p-4 rounded shadow">
-            <h3 className="font-semibold">Gastos del Día</h3>
-            <p className="text-xl">${summary.totalExpenses ? summary.totalExpenses.toFixed(2) : '0.00'}</p>
+          <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+            <h3 className="font-semibold text-lg text-gray-700 mb-2">Gastos del Día</h3>
+            <p className="text-2xl font-bold text-red-600">${summary.totalExpenses ? summary.totalExpenses.toFixed(2) : '0.00'}</p>
           </div>
-          <div className="bg-white p-4 rounded shadow">
-            <h3 className="font-semibold">Ganancia Neta</h3>
-            <p className="text-xl">${summary.netProfit ? summary.netProfit.toFixed(2) : '0.00'}</p>
+          <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+            <h3 className="font-semibold text-lg text-gray-700 mb-2">Ganancia Neta</h3>
+            <p className="text-2xl font-bold text-teal-600">${summary.netProfit ? summary.netProfit.toFixed(2) : '0.00'}</p>
           </div>
         </div>
       ) : (
-        <p>Cargando resumen...</p>
+        <p className="text-gray-600">Cargando resumen...</p>
       )}
       {lowStock.length > 0 && (
-        <div className="bg-red-100 p-4 rounded mb-8">
-          <h3 className="font-semibold text-red-700">Alerta: Stock Bajo</h3>
-          <ul className="list-disc pl-5">
+        <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded-md shadow-md mb-8" role="alert">
+          <h3 className="font-bold text-lg mb-2">Alerta: Stock Bajo</h3>
+          <ul className="list-disc pl-5 space-y-1">
             {lowStock.map((product) => (
               <li key={product._id}>
                 {product.name} (Talle: {product.size}, Cantidad: {product.quantity})
