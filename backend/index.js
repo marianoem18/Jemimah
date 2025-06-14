@@ -62,7 +62,17 @@ app.use(limiter);
 
 // Configurar CORS
 const corsOptions = {
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+  origin: (origin, callback) => {
+    const allowedOrigin = process.env.CORS_ORIGIN || 'http://localhost:3000';
+    // Normalizar el origen comparando sin la barra final
+    const normalizedOrigin = origin ? origin.replace(/\/$/, '') : origin;
+    const normalizedAllowed = allowedOrigin.replace(/\/$/, '');
+    if (normalizedOrigin === normalizedAllowed) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'x-auth-token'],
 };
