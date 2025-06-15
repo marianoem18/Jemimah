@@ -26,9 +26,7 @@ const Dashboard = () => {
       });
 
     // Obtener productos
-    axios.get('http://localhost:5000/api/products', {
-        headers: { 'x-auth-token': token },
-      })
+    api.get('/api/products')
       .then((res) => {
         const allProducts = res.data.data;
         // Calcular stock bajo

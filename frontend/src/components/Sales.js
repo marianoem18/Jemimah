@@ -30,10 +30,8 @@ const Sales = () => {
       .catch((err) => console.error(err));
 
     // ADDED: Fetch user info to pre-fill seller name
-    axios
-      .get('http://localhost:5000/api/auth/me', {
-        headers: { 'x-auth-token': token },
-      })
+    api
+      .get('/api/auth/me')
       .then((res) => {
         setForm((prevForm) => ({ ...prevForm, seller: res.data.name || '' }));
       })
@@ -48,23 +46,15 @@ const Sales = () => {
       return;
     }
     try {
-      const token = localStorage.getItem('token');
-      await api.post('/api/sales', saleData);
-      setForm({ items: [], paymentMethod: '', seller: '' });
+      // const token = localStorage.getItem('token'); // No longer needed with api service
+      await api.post('/api/sales', form); // Use form directly, ensure it has the correct structure
+      setForm({ items: [], paymentMethod: '', seller: form.seller }); // Preserve seller
       setError('');
       
       // Actualizar solo con las ventas del día
-      // REMOVED: const res = await axios.get('http://localhost:5000/api/sales/today', {
-      // REMOVED:   headers: { 'x-auth-token': token },
-      // REMOVED: });
-      // REMOVED: setSales(res.data.data);
-
-      // ADDED: Fetch all sales and filter by today's date
       const salesRes = await api.get('/api/sales/today');
-      const todaySales = res.data.data.filter(
-        (sale) => new Date(sale.date).toISOString().split('T')[0] === today
-      );
-      setSales(todaySales);
+      // The backend already filters for today's sales at /api/sales/today
+      setSales(salesRes.data.data);
     } catch (err) {
       setError(err.response?.data?.error?.message || 'Error al registrar venta');
     }

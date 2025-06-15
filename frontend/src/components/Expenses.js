@@ -36,10 +36,8 @@ const Expenses = () => {
       setError('');
       
       // Actualizar solo con los gastos del día
-      const res = await axios.get('http://localhost:5000/api/expenses/today', {
-        headers: { 'x-auth-token': token },
-      });
-      setExpenses(res.data.data);
+      const res = await api.get('/api/expenses/today');
+      setExpenses(res.data.data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))); // Asegurar ordenamiento
     } catch (err) {
       setError(err.response?.data?.error?.message || 'Error al registrar egreso');
     }
