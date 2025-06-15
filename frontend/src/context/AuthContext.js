@@ -48,8 +48,13 @@ const AuthContextProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       const res = await api.post('/api/auth/login', { email, password });
-      // La respuesta del backend tiene la estructura res.data.data.token y res.data.data.user
+      // Verificar que la respuesta tenga la estructura esperada
       console.log('Respuesta de login:', res.data);
+      
+      if (!res.data || !res.data.data || !res.data.data.token || !res.data.data.user) {
+        console.error('Estructura de respuesta inesperada:', res.data);
+        throw new Error('Respuesta del servidor incorrecta');
+      }
       
       // Actualizar el token en la instancia de axios compartida
       setAuthToken(res.data.data.token);
@@ -60,12 +65,28 @@ const AuthContextProvider = ({ children }) => {
       
       // Actualizar el estado de carga
       setLoading(false);
+      return true; // Indicar éxito
     } catch (err) {
       console.error('Error en login:', err);
       // Si el login falla, limpiar el token
       setAuthToken(null);
       setUser(null);
-      throw err.response?.data?.error?.message || 'Error al iniciar sesión';
+      
+      // Mejorar el manejo de errores para proporcionar mensajes más descriptivos
+      if (err.response) {
+        // El servidor respondió con un código de estado fuera del rango 2xx
+        console.log('Error de respuesta:', err.response.data);
+        throw err.response.data?.error?.message || 
+              `Error del servidor: ${err.response.status} ${err.response.statusText}`;
+      } else if (err.request) {
+        // La solicitud se realizó pero no se recibió respuesta
+        console.log('Error de solicitud:', err.request);
+        throw 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
+      } else {
+        // Algo ocurrió al configurar la solicitud
+        console.log('Error:', err.message);
+        throw err.message || 'Error al iniciar sesión';
+      }
     }
   };
 

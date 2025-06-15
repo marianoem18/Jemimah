@@ -66,48 +66,37 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-// Configurar CORS
-const corsOptions = {
-  origin: (origin, callback) => {
-    // Permitir solicitudes sin origen (como las de Postman o curl)
-    if (!origin) {
-      return callback(null, true);
-    }
-    
-    // Permitir múltiples orígenes separados por comas
-    const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:3000,https://jemimahkids.vercel.app').split(',');
-    
-    // Normalizar el origen comparando sin la barra final
-    const normalizedOrigin = origin.replace(/\/$/, '');
-    
-    // Verificar si el origen está en la lista de permitidos
-    const isAllowed = allowedOrigins.some(allowed => {
-      const normalizedAllowed = allowed.trim().replace(/\/$/, '');
-      return normalizedOrigin === normalizedAllowed;
-    });
-    
-    if (isAllowed) {
-      // Configurar el origen específico que hizo la solicitud
-      callback(null, true);
-    } else {
-      callback(new Error(`Origin ${origin} not allowed by CORS`));
-    }
-  },
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'x-auth-token'],
-  credentials: true // Permitir cookies en solicitudes cross-origin
-};
-app.use(cors(corsOptions));
+// Configurar orígenes permitidos para CORS
+const allowedOrigins = ['https://jemimahkids.vercel.app', 'http://localhost:3000'];
 
-// Middleware para establecer cabeceras CORS específicas
+// Middleware personalizado para CORS
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  if (origin) {
-    // Establecer el origen específico que hizo la solicitud
-    res.setHeader('Access-Control-Allow-Origin', origin);
+  
+  // Permitir solicitudes sin origen (como las de Postman)
+  if (!origin) {
+    return next();
   }
+  
+  // Verificar si el origen está permitido
+  if (allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, x-auth-token, Authorization, Origin, Accept');
+    res.header('Access-Control-Expose-Headers', 'x-auth-token');
+  }
+  
+  // Manejar solicitudes OPTIONS (preflight)
+  if (req.method === 'OPTIONS') {
+    return res.status(204).send();
+  }
+  
+  // Log para depuración de CORS
+  logger.info(`Solicitud recibida: ${req.method} ${req.url} desde origen: ${origin || 'desconocido'}`);
   next();
 });
+
+// No usar el middleware cors() estándar para evitar conflictos
 
 // Middleware
 app.use(express.json({ limit: '10kb' })); // Limitar tamaño del body

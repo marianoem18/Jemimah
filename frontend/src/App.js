@@ -14,6 +14,7 @@ const PrivateRoute = ({ children, adminOnly }) => {
   const { user, loading } = useContext(AuthContext);
   const token = localStorage.getItem('token');
 
+  // Mostrar indicador de carga mientras se verifica la autenticación
   if (loading) {
     return <div className="flex justify-center items-center min-h-screen">Cargando...</div>;
   }
@@ -21,13 +22,17 @@ const PrivateRoute = ({ children, adminOnly }) => {
   // Verificar si hay token y si el usuario está autenticado
   if (!token || !user) {
     console.log('Redirigiendo a login: no hay token o usuario', { token: !!token, user });
-    return <Navigate to="/login" />;
+    // Limpiar cualquier token inválido antes de redirigir
+    if (token && !user) {
+      localStorage.removeItem('token');
+    }
+    return <Navigate to="/login" replace />;
   }
 
-  // Verificar si la ruta requiere rol de admin
+  // Verificar si la ruta requiere ser admin
   if (adminOnly && user.role !== 'admin') {
-    console.log('Redirigiendo a dashboard: ruta solo para admin', { role: user.role });
-    return <Navigate to="/" />;
+    console.log('Usuario no es admin, redirigiendo a inicio');
+    return <Navigate to="/" replace />;
   }
 
   return children;
@@ -37,6 +42,11 @@ const App = () => {
   const { user, loading } = useContext(AuthContext);
   const token = localStorage.getItem('token');
 
+  // Función para verificar si el usuario está autenticado
+  const isAuthenticated = () => {
+    return token && user;
+  };
+
   if (loading) {
     return <div className="flex justify-center items-center min-h-screen">Cargando...</div>;
   }
@@ -45,12 +55,16 @@ const App = () => {
 
   return (
     <div className="flex flex-col min-h-screen">
-      {token && user && <HeaderNavbar />}
+      {isAuthenticated() && <HeaderNavbar />}
       <main className="flex-grow">
         <Routes>
-          <Route
-            path="/login"
-            element={token && user ? <Navigate to="/" /> : <Login />}
+          <Route 
+            path="/login" 
+            element={
+              isAuthenticated() ? 
+                <Navigate to="/" replace /> : 
+                <Login />
+            } 
           />
           <Route
             path="/"
@@ -92,10 +106,10 @@ const App = () => {
               </PrivateRoute>
             }
           />
-          <Route path="*" element={<Navigate to={token ? "/" : "/login"} />} />
+          <Route path="*" element={<Navigate to={isAuthenticated() ? "/" : "/login"} replace />} />
         </Routes>
       </main>
-      {token && <Footer />}
+      <Footer />
     </div>
   );
 };

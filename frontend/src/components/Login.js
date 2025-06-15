@@ -12,11 +12,13 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null); // Limpiar errores previos
-    const success = await login(email, password);
-    if (success) {
+    try {
+      await login(email, password);
+      // Si llegamos aquí, el login fue exitoso
       navigate('/');
-    } else {
-      setError('Credenciales inválidas. Por favor, inténtalo de nuevo.'); // Establecer mensaje de error
+    } catch (err) {
+      console.error('Error en Login.js:', err);
+      setError(err.toString() || 'Credenciales inválidas. Por favor, inténtalo de nuevo.'); // Mostrar el mensaje de error específico
     }
   };
 
