@@ -18,12 +18,15 @@ const PrivateRoute = ({ children, adminOnly }) => {
     return <div className="flex justify-center items-center min-h-screen">Cargando...</div>;
   }
 
-  // Si hay token, considerar al usuario autenticado incluso si user es null o tiene error
-  if (!token) {
+  // Verificar si hay token y si el usuario está autenticado
+  if (!token || !user) {
+    console.log('Redirigiendo a login: no hay token o usuario', { token: !!token, user });
     return <Navigate to="/login" />;
   }
 
-  if (adminOnly && user?.role !== 'admin') {
+  // Verificar si la ruta requiere rol de admin
+  if (adminOnly && user.role !== 'admin') {
+    console.log('Redirigiendo a dashboard: ruta solo para admin', { role: user.role });
     return <Navigate to="/" />;
   }
 
@@ -38,14 +41,16 @@ const App = () => {
     return <div className="flex justify-center items-center min-h-screen">Cargando...</div>;
   }
 
+  console.log('Estado de autenticación en App:', { user, token: !!token });
+
   return (
     <div className="flex flex-col min-h-screen">
-      {token && <HeaderNavbar />}
+      {token && user && <HeaderNavbar />}
       <main className="flex-grow">
         <Routes>
           <Route
             path="/login"
-            element={token && !user?.error ? <Navigate to="/" /> : <Login />}
+            element={token && user ? <Navigate to="/" /> : <Login />}
           />
           <Route
             path="/"

@@ -1,12 +1,5 @@
 import React, { createContext, useState, useEffect } from 'react';
-import axios from 'axios';
-
-// Crear una instancia de Axios con la URL base desde la variable de entorno
-const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || 'https://jemimah.onrender.com',
-  headers: { 'x-auth-token': localStorage.getItem('token') || '' },
-  withCredentials: true // Habilitar el envío de cookies en solicitudes cross-origin
-});
+import api, { setAuthToken } from '../services/api'; // Importar la instancia de api y la función setAuthToken
 
 export const AuthContext = createContext();
 
@@ -22,13 +15,26 @@ const AuthContextProvider = ({ children }) => {
     }
 
     try {
-      const res = await api.get('/api/auth/me', {
-        headers: { 'x-auth-token': token },
-      });
-      setUser(res.data);
+      // No es necesario pasar el token en los headers aquí, ya que la instancia de axios
+      // compartida ya tiene el token en sus headers por defecto
+      const res = await api.get('/api/auth/me');
+      
+      // La respuesta del backend tiene la estructura res.data.data.user
+      if (res.data && res.data.data && res.data.data.user) {
+        setUser(res.data.data.user);
+        console.log('Usuario cargado correctamente:', res.data.data.user);
+      } else {
+        console.error('Respuesta inesperada del servidor:', res.data);
+        setAuthToken(null); // Limpiar el token si la respuesta no tiene la estructura esperada
+        setUser(null);
+      }
     } catch (err) {
       console.error('Error loading user:', err);
-      localStorage.removeItem('token');
+      // Si hay un error 401 (Unauthorized), limpiar el token
+      if (err.response && err.response.status === 401) {
+        console.log('Token inválido o expirado, limpiando sesión...');
+        setAuthToken(null);
+      }
       setUser(null);
     } finally {
       setLoading(false);
@@ -42,22 +48,29 @@ const AuthContextProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       const res = await api.post('/api/auth/login', { email, password });
-      // Asumiendo que la respuesta es { token: "...", user: { ... } }
-      // El backend debe devolver el token directamente en res.data.token
-      localStorage.setItem('token', res.data.token);
-      api.defaults.headers['x-auth-token'] = res.data.token; // Actualizar el token en la instancia de axios
-      await loadUser(); // Cargar el usuario después de establecer el nuevo token
+      // La respuesta del backend tiene la estructura res.data.data.token y res.data.data.user
+      console.log('Respuesta de login:', res.data);
+      
+      // Actualizar el token en la instancia de axios compartida
+      setAuthToken(res.data.data.token);
+      
+      // Establecer el usuario directamente desde la respuesta
+      setUser(res.data.data.user);
+      console.log('Usuario después del login:', res.data.data.user);
+      
+      // Actualizar el estado de carga
+      setLoading(false);
     } catch (err) {
-      // Si el login falla, limpiar el token por si acaso
-      localStorage.removeItem('token');
-      api.defaults.headers['x-auth-token'] = '';
+      console.error('Error en login:', err);
+      // Si el login falla, limpiar el token
+      setAuthToken(null);
       setUser(null);
       throw err.response?.data?.error?.message || 'Error al iniciar sesión';
     }
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
+    setAuthToken(null); // Eliminar el token de la instancia de axios compartida
     setUser(null);
   };
 
