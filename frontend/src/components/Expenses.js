@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../services/api';
 
 const Expenses = () => {
   const [expenses, setExpenses] = useState([]);
@@ -12,11 +12,8 @@ const Expenses = () => {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    axios
-      .get('http://localhost:5000/api/expenses/today', {
-        headers: { 'x-auth-token': token },
-      })
+    api
+      .get('/api/expenses/today')
       .then((res) => {
         const sortedExpenses = res.data.data.sort((a, b) => {
           return new Date(b.createdAt) - new Date(a.createdAt);
@@ -29,15 +26,12 @@ const Expenses = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem('token');
       const dataToSend = {
         ...form,
         amount: parseFloat(form.amount),
         date: form.date,
       };
-      await axios.post('http://localhost:5000/api/expenses', dataToSend, {
-        headers: { 'x-auth-token': token },
-      });
+      await api.post('/api/expenses', dataToSend);
       setForm({ type: '', amount: '', description: '', date: new Date().toISOString().split('T')[0] });
       setError('');
       

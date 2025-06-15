@@ -29,7 +29,13 @@ app.use(
         defaultSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
         scriptSrc: ["'self'"],
-        connectSrc: ["'self'", process.env.CORS_ORIGIN || 'http://localhost:3000'],
+        connectSrc: [
+          "'self'",
+          process.env.CORS_ORIGIN || 'http://localhost:3000',
+          'https://jemimahkids.vercel.app',
+          'https://jemimah.onrender.com',
+          'http://localhost:5000' // Para pruebas locales del backend
+        ],
       },
     },
     referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
@@ -62,11 +68,46 @@ app.use(limiter);
 
 // Configurar CORS
 const corsOptions = {
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+  origin: (origin, callback) => {
+    // Permitir solicitudes sin origen (como las de Postman o curl)
+    if (!origin) {
+      return callback(null, true);
+    }
+    
+    // Permitir múltiples orígenes separados por comas
+    const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:3000,https://jemimahkids.vercel.app').split(',');
+    
+    // Normalizar el origen comparando sin la barra final
+    const normalizedOrigin = origin.replace(/\/$/, '');
+    
+    // Verificar si el origen está en la lista de permitidos
+    const isAllowed = allowedOrigins.some(allowed => {
+      const normalizedAllowed = allowed.trim().replace(/\/$/, '');
+      return normalizedOrigin === normalizedAllowed;
+    });
+    
+    if (isAllowed) {
+      // Configurar el origen específico que hizo la solicitud
+      callback(null, true);
+    } else {
+      callback(new Error(`Origin ${origin} not allowed by CORS`));
+    }
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'x-auth-token'],
+  credentials: true // Permitir cookies en solicitudes cross-origin
 };
 app.use(cors(corsOptions));
+
+// Middleware para establecer cabeceras CORS específicas
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin) {
+    // Establecer el origen específico que hizo la solicitud
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+  next();
+});
 
 // Middleware
 app.use(express.json({ limit: '10kb' })); // Limitar tamaño del body

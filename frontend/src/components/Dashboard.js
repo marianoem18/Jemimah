@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../services/api';
 
 const Dashboard = () => {
   const [summary, setSummary] = useState(null);
@@ -10,9 +10,7 @@ const Dashboard = () => {
   useEffect(() => {
     const token = localStorage.getItem('token');
     // Obtener resumen diario
-    axios.get(`http://localhost:5000/api/reports/summary?date=${today}&type=daily`, {
-        headers: { 'x-auth-token': token },
-      })
+    api.get(`/api/reports/summary?date=${today}&type=daily`)
       .then((res) => setSummary(res.data.data))
       .catch((err) => {
         console.error('Error fetching summary:', err);

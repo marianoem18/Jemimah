@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../services/api';
 
 const Sales = () => {
   const [products, setProducts] = useState([]);
@@ -17,17 +17,13 @@ const Sales = () => {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    axios
-      .get('http://localhost:5000/api/products', {
-        headers: { 'x-auth-token': token },
-      })
+    api
+      .get('/api/products')
       .then((res) => setProducts(res.data.data))
       .catch((err) => console.error(err));
 
-    axios
-      .get('http://localhost:5000/api/sales/today', {
-        headers: { 'x-auth-token': token },
-      })
+    api
+      .get('/api/sales/today')
       .then((res) => {
         setSales(res.data.data);
       })
@@ -53,9 +49,7 @@ const Sales = () => {
     }
     try {
       const token = localStorage.getItem('token');
-      await axios.post('http://localhost:5000/api/sales', form, {
-        headers: { 'x-auth-token': token },
-      });
+      await api.post('/api/sales', saleData);
       setForm({ items: [], paymentMethod: '', seller: '' });
       setError('');
       
@@ -66,9 +60,7 @@ const Sales = () => {
       // REMOVED: setSales(res.data.data);
 
       // ADDED: Fetch all sales and filter by today's date
-      const res = await axios.get('http://localhost:5000/api/sales', {
-        headers: { 'x-auth-token': token },
-      });
+      const salesRes = await api.get('/api/sales/today');
       const todaySales = res.data.data.filter(
         (sale) => new Date(sale.date).toISOString().split('T')[0] === today
       );

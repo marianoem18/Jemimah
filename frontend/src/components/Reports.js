@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../services/api';
 import moment from 'moment-timezone';
 
 const Reports = () => {
@@ -24,8 +24,8 @@ const Reports = () => {
     const headers = { 'x-auth-token': token };
 
     // Obtener reporte diario
-    axios
-      .get(`http://localhost:5000/api/reports/summary?type=daily&date=${today}`, { headers })
+    api
+      .get(`/api/reports/summary?type=daily&date=${today}`)
       .then((res) => {
         const data = res.data.data;
         setReport(
@@ -56,8 +56,8 @@ const Reports = () => {
       });
 
     // Obtener reportes históricos
-    axios
-      .get(`http://localhost:5000/api/reports/history?startDate=${thirtyDaysAgo}&endDate=${today}`, { headers })
+    api
+      .get(`/api/reports/history?startDate=${thirtyDaysAgo}&endDate=${today}`)
       .then((res) => {
         setHistoricalReports(res.data.data);
       })
@@ -98,10 +98,8 @@ ${Object.entries(report.salesByPaymentMethod)
 
   const download20DaysReport = () => {
     const token = localStorage.getItem('token');
-    axios
-      .get(`http://localhost:5000/api/reports/summary?date=${today}&type=20days`, {
-        headers: { 'x-auth-token': token },
-      })
+    api
+      .get(`/api/reports/summary?date=${today}&type=20days`)
       .then((res) => {
         const report20Days = res.data.data;
         const content = `

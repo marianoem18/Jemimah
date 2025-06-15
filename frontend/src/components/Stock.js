@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../services/api';
 
 const Stock = () => {
   const [products, setProducts] = useState([]);
@@ -31,10 +31,8 @@ const Stock = () => {
 
   useEffect(() => {
     if (!token) return;
-    axios
-      .get('http://localhost:5000/api/products', {
-        headers: { 'x-auth-token': token },
-      })
+    api
+      .get('/api/products')
       .then((res) => setProducts(res.data.data))
       .catch((err) => console.error(err));
   }, [token]);
