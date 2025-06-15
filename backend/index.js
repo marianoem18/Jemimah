@@ -69,34 +69,50 @@ app.use(limiter);
 // Configurar orígenes permitidos para CORS
 const allowedOrigins = ['https://jemimahkids.vercel.app', 'http://localhost:3000'];
 
-// Middleware personalizado para CORS
+// Middleware personalizado para CORS - versión mejorada
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   
-  // Permitir solicitudes sin origen (como las de Postman)
-  if (!origin) {
-    return next();
-  }
+  // Log para depuración de CORS
+  logger.info(`Solicitud recibida: ${req.method} ${req.url} desde origen: ${origin || 'desconocido'}`);
   
-  // Verificar si el origen está permitido
-  if (allowedOrigins.includes(origin)) {
+  // Siempre establecer los encabezados CORS para cualquier origen en la lista permitida
+  if (origin && allowedOrigins.includes(origin)) {
+    // Configurar encabezados CORS
     res.header('Access-Control-Allow-Origin', origin);
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     res.header('Access-Control-Allow-Headers', 'Content-Type, x-auth-token, Authorization, Origin, Accept');
     res.header('Access-Control-Expose-Headers', 'x-auth-token');
+    res.header('Access-Control-Max-Age', '86400'); // 24 horas - reducir número de preflight requests
   }
   
   // Manejar solicitudes OPTIONS (preflight)
   if (req.method === 'OPTIONS') {
-    return res.status(204).send();
+    return res.status(204).end();
   }
   
-  // Log para depuración de CORS
-  logger.info(`Solicitud recibida: ${req.method} ${req.url} desde origen: ${origin || 'desconocido'}`);
   next();
 });
 
-// No usar el middleware cors() estándar para evitar conflictos
+// Usar el middleware cors estándar como respaldo para mayor compatibilidad
+app.use(cors({
+  origin: function(origin, callback) {
+    // Permitir solicitudes sin origen (como las de Postman)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('No permitido por CORS'));
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'x-auth-token', 'Authorization', 'Origin', 'Accept'],
+  exposedHeaders: ['x-auth-token'],
+  credentials: false,
+  preflightContinue: false,
+  optionsSuccessStatus: 204
+}));
 
 // Middleware
 app.use(express.json({ limit: '10kb' })); // Limitar tamaño del body

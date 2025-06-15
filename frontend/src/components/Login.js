@@ -18,7 +18,8 @@ const Login = () => {
       navigate('/');
     } catch (err) {
       console.error('Error en Login.js:', err);
-      setError(err.toString() || 'Credenciales inválidas. Por favor, inténtalo de nuevo.'); // Mostrar el mensaje de error específico
+      // Usar el mensaje amigable del interceptor o un mensaje predeterminado
+      setError(err.friendlyMessage || err.toString() || 'Credenciales inválidas. Por favor, inténtalo de nuevo.');
     }
   };
 

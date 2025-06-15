@@ -2,6 +2,7 @@ import axios from 'axios';
 
 // Usar la URL del backend de producción
 const API_URL = process.env.REACT_APP_API_URL || 'https://jemimah.onrender.com';
+console.log('API URL utilizada:', API_URL); // Para depuración
 
 // Crear una instancia de axios con la URL base
 const api = axios.create({
@@ -33,17 +34,59 @@ api.interceptors.request.use(
 
 // Interceptor para respuestas
 api.interceptors.response.use(
-  response => response,
+  response => {
+    // Log de respuestas exitosas para depuración
+    console.log(`Respuesta exitosa de ${response.config.url}:`, response.status);
+    return response;
+  },
   error => {
+    // Información detallada sobre el error
+    console.error('Error en solicitud API:', error.message);
+    
     // Manejar errores de red o CORS
     if (error.message === 'Network Error') {
-      console.error('Error de red - posible problema CORS:', error);
-      console.log('URL de la solicitud:', error.config?.url);
+      console.error('Error de red detectado - posible problema CORS');
+      console.log('URL completa de la solicitud:', API_URL + (error.config?.url || ''));
       console.log('Método de la solicitud:', error.config?.method);
-      console.log('Headers de la solicitud:', error.config?.headers);
+      console.log('Headers de la solicitud:', JSON.stringify(error.config?.headers));
+      
+      // Mensaje de error más amigable para el usuario
+      error.friendlyMessage = 'No se pudo conectar con el servidor. Verifica tu conexión a internet o contacta al administrador.';
+    } else if (error.response) {
+      // El servidor respondió con un código de error
+      console.log('Respuesta de error del servidor:', {
+        status: error.response.status,
+        statusText: error.response.statusText,
+        data: error.response.data
+      });
+      
+      // Mensaje basado en el código de estado
+      switch (error.response.status) {
+        case 401:
+          error.friendlyMessage = 'Sesión expirada o credenciales inválidas. Por favor, inicia sesión nuevamente.';
+          break;
+        case 403:
+          error.friendlyMessage = 'No tienes permiso para realizar esta acción.';
+          break;
+        case 404:
+          error.friendlyMessage = 'El recurso solicitado no existe.';
+          break;
+        case 500:
+          error.friendlyMessage = 'Error en el servidor. Por favor, intenta más tarde.';
+          break;
+        default:
+          error.friendlyMessage = error.response.data?.error?.message || 'Ocurrió un error inesperado.';
+      }
+    } else if (error.request) {
+      // La solicitud se hizo pero no se recibió respuesta
+      console.log('No se recibió respuesta:', error.request);
+      error.friendlyMessage = 'El servidor no responde. Por favor, intenta más tarde.';
     } else {
-      console.error('API Error:', error);
+      // Error en la configuración de la solicitud
+      console.log('Error en la configuración:', error.message);
+      error.friendlyMessage = 'Error al preparar la solicitud. Por favor, intenta nuevamente.';
     }
+    
     return Promise.reject(error);
   }
 );

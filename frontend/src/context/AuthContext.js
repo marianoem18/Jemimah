@@ -47,13 +47,17 @@ const AuthContextProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
+      console.log('Intentando iniciar sesión con:', { email });
+      
       const res = await api.post('/api/auth/login', { email, password });
       // Verificar que la respuesta tenga la estructura esperada
       console.log('Respuesta de login:', res.data);
       
       if (!res.data || !res.data.data || !res.data.data.token || !res.data.data.user) {
         console.error('Estructura de respuesta inesperada:', res.data);
-        throw new Error('Respuesta del servidor incorrecta');
+        const error = new Error('Respuesta del servidor incorrecta');
+        error.friendlyMessage = 'El formato de respuesta del servidor es incorrecto. Contacta al administrador.';
+        throw error;
       }
       
       // Actualizar el token en la instancia de axios compartida
@@ -72,22 +76,11 @@ const AuthContextProvider = ({ children }) => {
       setAuthToken(null);
       setUser(null);
       
-      // Mejorar el manejo de errores para proporcionar mensajes más descriptivos
-      if (err.response) {
-        // El servidor respondió con un código de estado fuera del rango 2xx
-        console.log('Error de respuesta:', err.response.data);
-        throw err.response.data?.error?.message || 
-              `Error del servidor: ${err.response.status} ${err.response.statusText}`;
-      } else if (err.request) {
-        // La solicitud se realizó pero no se recibió respuesta
-        console.log('Error de solicitud:', err.request);
-        throw 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
-      } else {
-        // Algo ocurrió al configurar la solicitud
-        console.log('Error:', err.message);
-        throw err.message || 'Error al iniciar sesión';
-      }
+      // Propagar el error con el mensaje amigable
+      // El interceptor de axios ya ha añadido friendlyMessage al objeto de error
+      throw err;
     }
+  
   };
 
   const logout = () => {
