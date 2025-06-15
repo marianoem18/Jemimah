@@ -122,6 +122,7 @@ app.use('/api/products', require('./routes/products'));
 app.use('/api/sales', require('./routes/sales'));
 app.use('/api/expenses', require('./routes/expenses'));
 app.use('/api/auth', require('./routes/auth'));
+app.use('/api', require('./routes/ping'));
 app.use('/api/reports', require('./routes/reports'));
 
 // Middleware de errores global
