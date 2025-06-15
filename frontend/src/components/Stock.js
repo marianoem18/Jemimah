@@ -46,14 +46,10 @@ const Stock = () => {
       salePrice: parseFloat(form.salePrice),
     };
     try {
-      await axios.post('http://localhost:5000/api/products', dataToSend, {
-        headers: { 'x-auth-token': token },
-      });
+      await api.post('/api/products', dataToSend);
       setForm({ name: '', size: '', category: '', type: '', garment: '', quantity: '', costPrice: '', salePrice: '' });
       setError('');
-      const res = await axios.get('http://localhost:5000/api/products', {
-        headers: { 'x-auth-token': token },
-      });
+      const res = await api.get('/api/products');
       setProducts(res.data.data);
     } catch (err) {
       setError(err.response?.data?.error?.message || 'Error al agregar producto');
@@ -78,14 +74,11 @@ const Stock = () => {
       return;
     }
     try {
-      await axios.put(
-        `http://localhost:5000/api/products/${productId}/quantity`,
-        { quantity: Number(editQuantity) },
-        { headers: { 'x-auth-token': token } }
+      await api.put(
+        `/api/products/${productId}/quantity`,
+        { quantity: Number(editQuantity) }
       );
-      const res = await axios.get('http://localhost:5000/api/products', {
-        headers: { 'x-auth-token': token },
-      });
+      const res = await api.get('/api/products');
       setProducts(res.data.data);
       setEditingProductId(null);
       setEditQuantity('');
