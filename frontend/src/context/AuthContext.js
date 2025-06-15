@@ -42,10 +42,11 @@ const AuthContextProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       const res = await api.post('/api/auth/login', { email, password });
-      // Asegúrate de que la ruta del token sea la correcta según tu backend
-      localStorage.setItem('token', res.data.data.token);
-      api.defaults.headers['x-auth-token'] = res.data.data.token; // Actualizar el token en la instancia de axios
-      await loadUser();
+      // Asumiendo que la respuesta es { token: "...", user: { ... } }
+      localStorage.setItem('token', res.data.token);
+      api.defaults.headers['x-auth-token'] = res.data.token; // Actualizar el token en la instancia de axios
+      setUser(res.data.user); // Establecer el usuario directamente desde la respuesta del login
+      console.log('User after login:', res.data.user); // Para depurar el rol
     } catch (err) {
       throw err.response?.data?.error?.message || 'Error al iniciar sesión';
     }
