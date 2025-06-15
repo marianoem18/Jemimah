@@ -43,11 +43,15 @@ const AuthContextProvider = ({ children }) => {
     try {
       const res = await api.post('/api/auth/login', { email, password });
       // Asumiendo que la respuesta es { token: "...", user: { ... } }
+      // El backend debe devolver el token directamente en res.data.token
       localStorage.setItem('token', res.data.token);
       api.defaults.headers['x-auth-token'] = res.data.token; // Actualizar el token en la instancia de axios
-      setUser(res.data.user); // Establecer el usuario directamente desde la respuesta del login
-      console.log('User after login:', res.data.user); // Para depurar el rol
+      await loadUser(); // Cargar el usuario después de establecer el nuevo token
     } catch (err) {
+      // Si el login falla, limpiar el token por si acaso
+      localStorage.removeItem('token');
+      api.defaults.headers['x-auth-token'] = '';
+      setUser(null);
       throw err.response?.data?.error?.message || 'Error al iniciar sesión';
     }
   };
